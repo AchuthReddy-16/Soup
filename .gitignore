@@ -52,3 +52,4 @@ docs/superpowers/
 
 # Layer-streaming disk-throughput probe scratch file (soup doctor --disk / training pre-flight)
 .soup-diskprobe-*
+screenpipe/
