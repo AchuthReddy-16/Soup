@@ -56,7 +56,7 @@ def _try_import_callback_base():
         return object
 
 
-class HFPushCallback(_try_import_callback_base()):  # type: ignore[misc]
+class _HFPushCallback_body:  # type: ignore[misc]  # noqa: N801
     """Real HF ``TrainerCallback`` auto-pusher.
 
     Subclasses the lazily-resolved ``TrainerCallback`` so it inherits the no-op
@@ -327,7 +327,7 @@ def build_push_callback(
     output_dir: str,
     explicit_token: Optional[str] = None,
     private: bool = False,
-) -> Optional[HFPushCallback]:
+) -> Optional[HFPushCallback]:  # noqa: F821
     """Factory that resolves token/endpoint and builds the callback.
 
     Returns None when no HF token is available — the caller logs and skips
@@ -343,10 +343,29 @@ def build_push_callback(
         logger.warning("HF_ENDPOINT invalid (%s); skipping auto-push", exc)
         return None
 
-    return HFPushCallback(
+    return HFPushCallback(  # noqa: F821
         repo_id=repo_id,
         token=token,
         endpoint=endpoint,
         output_dir=output_dir,
         private=private,
     )
+
+
+_LAZY_CALLBACKS = {
+    "HFPushCallback": _HFPushCallback_body,
+}
+_BODY_SKIP = frozenset(("__dict__", "__weakref__"))
+
+
+def __getattr__(name: str):  # PEP 562
+    body = _LAZY_CALLBACKS.get(name)
+    if body is not None:
+        base = _try_import_callback_base()
+        ns = {k: v for k, v in vars(body).items() if k not in _BODY_SKIP}
+        cls = type(name, (base,), ns)
+        cls.__module__ = __name__
+        cls.__qualname__ = name
+        globals()[name] = cls
+        return cls
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

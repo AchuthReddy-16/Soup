@@ -12,6 +12,15 @@ reproducing 70+ versions of notes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Eleven TrainerCallback modules no longer import transformers at module
+  scope (#320 by @AchuthReddy-16).** The callback class in each module is now
+  built lazily via PEP 562 `__getattr__` on first access, so importing the
+  module no longer pulls `transformers` (and therefore `torch`). A new
+  per-module runtime test in `test_cli_startup_is_light.py` enforces the
+  invariant.
+
 ### Fixed
 
 - **Duck-typed tokenizer mappings no longer raise a misleading error, and

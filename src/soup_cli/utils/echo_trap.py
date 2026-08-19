@@ -300,7 +300,7 @@ def _split_whitespace(text: str) -> list[str]:
 
 
 def _get_trainer_callback_base():
-    """Lazy-resolve ``transformers.TrainerCallback`` (mirror v0.53.11)."""
+    """Lazy-resolve ``transformers.TrainerCallback``."""
     try:
         from transformers import TrainerCallback
 
@@ -309,10 +309,7 @@ def _get_trainer_callback_base():
         return object
 
 
-_TrainerCallbackBase = _get_trainer_callback_base()
-
-
-class EchoTrapCallback(_TrainerCallbackBase):  # type: ignore[misc, valid-type]
+class _EchoTrapCallback_body:  # type: ignore[misc, valid-type]  # noqa: N801
     """Live HF TrainerCallback for echo-trap detection (v0.71.11 #240).
 
     Reads the GRPO step's generated completions (via the shared
@@ -451,14 +448,14 @@ def build_echo_trap_callback(
     tokenizer_aware: bool = False,
     buffer: object = None,
     tokenizer: object = None,
-) -> "EchoTrapCallback":
+) -> EchoTrapCallback:  # noqa: F821
     """Build the live echo-trap HF Trainer callback (v0.71.11 #240).
 
     Lifts the v0.70.0 ``NotImplementedError`` stub. Validates every input
     at the public boundary (mirrors v0.50.0 / v0.61.0 fail-fast policy),
     then returns an :class:`EchoTrapCallback`.
     """
-    return EchoTrapCallback(
+    return EchoTrapCallback(  # noqa: F821
         threshold=threshold,
         halt_on_trap=halt_on_trap,
         ngram_n=ngram_n,
@@ -473,7 +470,7 @@ def build_echo_trap_callback(
 # without circular dependencies.
 __all__ = [
     "VERDICTS",
-    "EchoTrapCallback",
+    "EchoTrapCallback",  # noqa: F822
     "EchoTrapReport",
     "build_echo_trap_callback",
     "classify_echo_signal",
@@ -489,3 +486,22 @@ TrajectoryTokens = Sequence[str]
 TrajectoryBatch = Iterable[TrajectoryTokens]
 TokenIdTrajectory = Sequence[int]
 TokenIdTrajectoryBatch = Iterable[TokenIdTrajectory]
+
+
+_LAZY_CALLBACKS = {
+    "EchoTrapCallback": _EchoTrapCallback_body,
+}
+_BODY_SKIP = frozenset(("__dict__", "__weakref__"))
+
+
+def __getattr__(name: str):  # PEP 562
+    body = _LAZY_CALLBACKS.get(name)
+    if body is not None:
+        base = _get_trainer_callback_base()
+        ns = {k: v for k, v in vars(body).items() if k not in _BODY_SKIP}
+        cls = type(name, (base,), ns)
+        cls.__module__ = __name__
+        cls.__qualname__ = name
+        globals()[name] = cls
+        return cls
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
